@@ -1,0 +1,698 @@
+        -:    0:Source:mync.c
+        -:    0:Graph:mync.gcno
+        -:    0:Data:mync.gcda
+        -:    0:Runs:2
+        -:    1:#include <stdio.h>
+        -:    2:#include <stdlib.h>
+        -:    3:#include <unistd.h>
+        -:    4:#include <string.h>
+        -:    5:#include <sys/types.h>
+        -:    6:#include <sys/socket.h>
+        -:    7:#include <arpa/inet.h>
+        -:    8:#include <netinet/in.h>
+        -:    9:#include <netdb.h>
+        -:   10:#include <sys/wait.h>
+        -:   11:#include <sys/un.h>
+        -:   12:
+        -:   13:
+        -:   14:#define sockpath "/tmp/my_socket"
+        -:   15:
+        -:   16:
+        1:   17:void runttt(char *argv[]){
+        1:   18:    	if(!strcmp(argv[1],"-e")){
+        1:   19:	    char *arg = argv[2];
+        1:   20:	    char *num = strchr(arg,' ');
+        1:   21:	    if(num==NULL){
+    #####:   22:		printf("false arguments");
+    #####:   23:		exit(1);
+        -:   24:	    }
+        1:   25:	    num++;
+        1:   26:	    execl("ttt","ttt",num,NULL);
+        1:   27:	    printf("execl failed");
+    #####:   28:	    exit(1);
+        -:   29:    	}
+    #####:   30:}
+        -:   31:
+        -:   32:
+        -:   33:
+        -:   34:
+        1:   35:void start_tcp_server(int* sockfd,int port){
+        1:   36:	*sockfd = socket(AF_INET,SOCK_STREAM,0);
+        1:   37:	if(*sockfd==-1){
+    #####:   38:	    printf("socket opening error\n");
+    #####:   39:	    exit(1);
+        -:   40:	}
+        -:   41:	struct sockaddr_in serv_addr;
+        -:   42:	
+        1:   43:	memset(&serv_addr,0,sizeof(serv_addr));
+        -:   44:	
+        1:   45:	const int enable = 1;
+        1:   46:	if (setsockopt(*sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0){
+    #####:   47:    		perror("setsockopt failed");
+    #####:   48:    		exit(1);
+        -:   49:	}
+        1:   50:	serv_addr.sin_family = AF_INET;
+        1:   51:	serv_addr.sin_port = htons(port);
+        1:   52:	serv_addr.sin_addr.s_addr = INADDR_ANY;
+        -:   53:	
+        1:   54:	if(bind(*sockfd,(struct sockaddr *)&serv_addr,sizeof (serv_addr))<0){
+    #####:   55:	    printf("bind failed");
+    #####:   56:	    exit(1);
+        -:   57:	
+        -:   58:	}
+        1:   59:	printf("socket is bound to port %d\n",port);
+        1:   60:	if(listen(*sockfd,3)<0){
+    #####:   61:	    printf("listen");
+    #####:   62:	    exit(1);
+        -:   63:	}
+        -:   64:	
+        1:   65:	printf("listening to port %d\n",port);
+        -:   66:	
+        -:   67:	
+        1:   68:}
+        -:   69:
+        -:   70:
+        -:   71://connects to the port that is listening
+    #####:   72:void start_tcp_listener(int* sockfd,char *hostname,int port){
+        -:   73:
+        -:   74:	    struct sockaddr_in serv_addr;
+        -:   75:
+    #####:   76:	    *sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    #####:   77:	    if (*sockfd < 0) {
+    #####:   78:		perror("socket failed");
+    #####:   79:		exit(1);
+        -:   80:	    }
+        -:   81:
+    #####:   82:	    memset(&serv_addr, 0, sizeof(serv_addr));
+    #####:   83:	    serv_addr.sin_family = AF_INET;
+    #####:   84:	    serv_addr.sin_port = htons(port);
+        -:   85:	    
+        -:   86:	    
+    #####:   87:	    if (inet_pton(AF_INET, hostname, &serv_addr.sin_addr) <= 0) {
+    #####:   88:		perror("inet_pton failed");
+    #####:   89:		close(*sockfd);
+    #####:   90:		exit(1);
+        -:   91:	    }
+        -:   92:
+    #####:   93:	    if (connect(*sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+    #####:   94:		perror("connect failed");
+    #####:   95:		close(*sockfd);
+    #####:   96:		exit(1);
+        -:   97:	    }
+        -:   98:
+    #####:   99:	    printf("Connected to %s on port %d\n", hostname, port);
+        -:  100:
+    #####:  101:}
+        -:  102:
+    #####:  103:void without_e(int clientfd,char *argv[]){	
+        -:  104:	char buffer[1024];
+    #####:  105:	pid_t pid = fork();
+        -:  106:	
+    #####:  107:	if(pid==0){
+        -:  108:		//redirect the stdinput to the client 
+    #####:  109:	    	if(!strcmp(argv[1],"-i") || !strcmp(argv[1],"-o")){
+        -:  110:    	     
+        -:  111:    	    	    int r;
+    #####:  112:    	    	    while((r=read(STDIN_FILENO,buffer,sizeof(buffer)))>0){
+    #####:  113:    	    	    	write(clientfd,buffer,r);
+        -:  114:    	    	    		
+        -:  115:    	    	    
+        -:  116:    	    	    }
+    #####:  117:    	    	    exit(1);
+        -:  118:    	    	    
+        -:  119:    	    	    
+        -:  120:    	    	}
+        -:  121:    	    	
+        -:  122:    	        //redirect the stdinput to the client, and the stdoutput to the client
+    #####:  123:    	        if(!strcmp(argv[1],"-b")){
+    #####:  124:    	            if(dup2(clientfd,STDIN_FILENO)<0){
+    #####:  125:    	            	printf("stdin");
+    #####:  126:    	             	exit(1);
+        -:  127:    	            }
+        -:  128:    	            
+    #####:  129:    	            if(dup2(clientfd,STDOUT_FILENO)<0){
+    #####:  130:    	            	printf("stdout");
+    #####:  131:    	             	exit(1);
+        -:  132:    	            }
+    #####:  133:    	            close(clientfd);
+        -:  134:    	            
+        -:  135:    	        }
+        -:  136:    	       
+        -:  137:	}
+        -:  138:	
+        -:  139:	else{	
+        -:  140:		int r;
+        -:  141:		
+    #####:  142:		if(!strcmp(argv[1],"-i") || !strcmp(argv[1],"-o")){
+    #####:  143:			while((r=read(clientfd,buffer,sizeof(buffer)))>0){
+    #####:  144:			    write(STDOUT_FILENO,buffer,r);
+        -:  145:			    
+        -:  146:			
+        -:  147:			}
+    #####:  148:			close(clientfd);
+    #####:  149:			waitpid(pid,NULL,0);
+    #####:  150:			exit(1);
+        -:  151:		}
+        -:  152:		
+        -:  153:	}
+        -:  154:	
+        -:  155:	
+    #####:  156:}
+        -:  157:
+    #####:  158:void run_i_and_o(int clientfd,int listenerfd,char *argv[]){
+    #####:  159:	pid_t pid = fork();
+        -:  160:	
+        -:  161:	
+    #####:  162:	if(pid==0){
+        -:  163:		//redirect the input of ttt to the input of the client
+    #####:  164:		if(dup2(clientfd,STDIN_FILENO)<0) exit(1);
+        -:  165:		     //redirect the stdout to the listening socket
+    #####:  166:	    	     if(dup2(listenerfd,STDOUT_FILENO)<0) exit(1);
+    #####:  167:	    	     close(clientfd);
+    #####:  168:	    	     close(listenerfd);
+    #####:  169:	    	     runttt(argv);
+        -:  170:	}
+        -:  171:	else{
+    #####:  172:	    close(clientfd);
+    #####:  173:	    close(listenerfd);
+    #####:  174:	    waitpid(pid,NULL,0);
+    #####:  175:	    exit(1);
+        -:  176:	
+        -:  177:	}
+        -:  178:    	     
+    #####:  179:}
+        -:  180:
+        1:  181:void run_i_o_b_tcp(int clientfd,char *argv[]){
+        -:  182:
+        -:  183:	pid_t pid;
+        1:  184:    	pid = fork();
+        2:  185:    	if(pid==-1){
+    #####:  186:    		printf("fork error");
+    #####:  187:    		exit(1);
+        -:  188:   	}
+        -:  189:    
+        2:  190:        if(pid==0){
+        -:  191:
+        -:  192:		//redirect the input of the client to ttt
+        1:  193:    	        if(!strcmp(argv[3],"-i")){
+       1*:  194:    	            if(dup2(clientfd,STDIN_FILENO)<0) exit(1);
+        1:  195:    	    	    close(clientfd);
+        1:  196:    	    	    runttt(argv);
+        -:  197:    	        
+        -:  198:    	        }
+        -:  199:    	        
+        -:  200:    	        //redirect the output of ttt to the client
+    #####:  201:    	        if(!strcmp(argv[3],"-o")){
+    #####:  202:    	            if(dup2(clientfd,STDOUT_FILENO)<0) exit(1);
+    #####:  203:    	    	    close(clientfd);
+    #####:  204:    	    	    runttt(argv);
+        -:  205:    	        
+        -:  206:    	        }
+        -:  207:    	        
+        -:  208:    	        
+        -:  209:    	        //redirect the ttt input to the client, and the output of ttt to the client
+    #####:  210:    	        if(!strcmp(argv[3],"-b")){
+    #####:  211:    	            if(dup2(clientfd,STDIN_FILENO)<0){
+    #####:  212:    	            	printf("stdin");
+    #####:  213:    	             	exit(1);
+        -:  214:    	            }
+        -:  215:    	            
+    #####:  216:    	            if(dup2(clientfd,STDOUT_FILENO)<0){
+    #####:  217:    	            	printf("stdout");
+    #####:  218:    	             	exit(1);
+        -:  219:    	            }
+    #####:  220:    	            close(clientfd);
+    #####:  221:    	            runttt(argv);
+        -:  222:    	        }
+        -:  223:    	        
+        -:  224:    	 }
+        -:  225:    	 
+        -:  226:    	 else{
+        1:  227:    	 	close(clientfd);
+        1:  228:    	 	waitpid(pid,NULL,0);
+        -:  229:    	 	
+        1:  230:    	 	if(!strncmp(argv[4],"uds",3))
+    #####:  231:    	 		unlink(sockpath);
+        -:  232:    	 	
+        1:  233:    	 	exit(1);
+        -:  234:    	 
+        -:  235:    	 }
+        -:  236:
+    #####:  237:}
+        -:  238:
+        -:  239:
+    #####:  240:void run_basic(char *argv[]){
+    #####:  241:	pid_t pid = fork();
+        -:  242:    	
+    #####:  243:    	if(pid==0){
+    #####:  244:    		runttt(argv);
+        -:  245:    	}
+        -:  246:    	
+        -:  247:    	else{
+    #####:  248:    		waitpid(pid,NULL,0);
+    #####:  249:    		exit(1);
+        -:  250:    	}
+        -:  251:    	
+        -:  252:
+        -:  253:
+    #####:  254:}
+        -:  255:
+        -:  256:
+    #####:  257:void start_udp_server(int *sockfd, int port) {
+    #####:  258:    *sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    #####:  259:    if (*sockfd == -1) {
+    #####:  260:        perror("socket");
+    #####:  261:        exit(1);
+        -:  262:    }
+        -:  263:
+        -:  264:    struct sockaddr_in server_addr;
+    #####:  265:    memset(&server_addr, 0, sizeof(server_addr));
+        -:  266:    
+    #####:  267:    const int enable = 1;
+    #####:  268:    if (setsockopt(*sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0){
+    #####:  269:    	perror("setsockopt failed");
+    #####:  270:    	exit(1);
+        -:  271:    }
+        -:  272:
+    #####:  273:    server_addr.sin_family = AF_INET;
+    #####:  274:    server_addr.sin_port = htons(port);
+    #####:  275:    server_addr.sin_addr.s_addr = INADDR_ANY;
+        -:  276:
+    #####:  277:    if (bind(*sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+    #####:  278:        perror("bind failed");
+    #####:  279:        exit(1);
+        -:  280:    }
+        -:  281:
+    #####:  282:    printf("Socket is bound to port %d\n", port);
+    #####:  283:}
+        -:  284:
+        -:  285:
+    #####:  286:void start_udp_client(int port){
+        -:  287:
+        -:  288:    struct sockaddr_in server_addr;
+        -:  289:    
+    #####:  290:    int clientfd = socket(AF_INET, SOCK_DGRAM, 0);
+    #####:  291:    if(clientfd<0){
+    #####:  292:    	exit(1);
+        -:  293:    }
+        -:  294:    
+    #####:  295:    memset(&server_addr, 0, sizeof(server_addr));
+    #####:  296:    server_addr.sin_family = AF_INET;
+    #####:  297:    server_addr.sin_port = htons(port);
+    #####:  298:    server_addr.sin_addr.s_addr = INADDR_ANY;
+        -:  299:    
+        -:  300:    int count;
+        -:  301:
+        -:  302:    char buffer[1024];
+    #####:  303:    while(fgets(buffer, sizeof(buffer), stdin)!=NULL){
+        -:  304:    
+    #####:  305:    	sendto(clientfd, buffer, strlen(buffer), 0, (const struct sockaddr *) &server_addr, sizeof(server_addr));
+    #####:  306:    	memset(buffer,'\0',sizeof(buffer));
+        -:  307:    }
+        -:  308:    
+    #####:  309:    exit(1);
+        -:  310:}
+        -:  311:
+        -:  312:
+        -:  313:
+        -:  314:
+    #####:  315:void run_i_o_b_udp(int clientfd,char *argv[]){
+        -:  316:
+        -:  317:    char buffer[1024];
+        -:  318:    struct sockaddr_in client_addr;
+    #####:  319:    socklen_t client_len = sizeof(client_addr);
+        -:  320:    
+    #####:  321:    pid_t pid = fork();
+        -:  322:    
+    #####:  323:    if(pid==0){
+        -:  324:    	//redirect the input of the client to the ttt
+    #####:  325:    	        if(!strcmp(argv[3],"-i")){
+    #####:  326:    	            if(dup2(clientfd,STDIN_FILENO)<0) exit(1);
+    #####:  327:    	    	    close(clientfd);
+    #####:  328:    	    	    runttt(argv);
+        -:  329:    	        
+        -:  330:    	        }
+        -:  331:    	        
+        -:  332:    	        //redirect the output of ttt to the client
+    #####:  333:    	        if(!strcmp(argv[3],"-o")){
+    #####:  334:    	            if(dup2(clientfd,STDOUT_FILENO)<0) exit(1);
+    #####:  335:    	    	    close(clientfd);
+    #####:  336:    	    	    runttt(argv);
+        -:  337:    	        
+        -:  338:    	        }
+        -:  339:    	        
+        -:  340:    	        
+        -:  341:    	 }
+        -:  342:    
+        -:  343:    // Parent process to forward data between client and ttt	 
+        -:  344:     else {
+    #####:  345:        while (1) {
+    #####:  346:           getchar(); //consume 1 input
+    #####:  347:           ssize_t count = recvfrom(clientfd, buffer, sizeof(buffer), 0, (struct sockaddr *)&client_addr, &client_len);
+    #####:  348:           if (count > 0) {
+    #####:  349:         	  write(STDOUT_FILENO, buffer, count);
+        -:  350:           } 
+        -:  351:           else {
+    #####:  352:        	   break;
+        -:  353:           }
+        -:  354:      	}
+    #####:  355:     	close(clientfd);
+    #####:  356:        waitpid(pid, NULL, 0);
+    #####:  357:        exit(1);
+        -:  358:     }
+        -:  359:    
+        -:  360:
+        -:  361:    
+    #####:  362:}
+        -:  363:
+        -:  364:
+    #####:  365:void shut_down(int signum){
+    #####:  366:    printf("shutting server down\n");
+    #####:  367:    unlink(sockpath);
+    #####:  368:    killpg(0, SIGTERM);
+    #####:  369:    exit(1);
+        -:  370:}
+        -:  371:
+        -:  372:
+    #####:  373:void start_uds_stream_server(int* serverfd){
+        -:  374:	
+        -:  375:	struct sockaddr_un addr;
+    #####:  376:	*serverfd = socket(AF_UNIX, SOCK_STREAM, 0);
+    #####:  377:	if(*serverfd<0){
+    #####:  378:	    perror("uds stream error");
+    #####:  379:	    exit(1);
+        -:  380:	}
+        -:  381:	
+        -:  382:	
+    #####:  383:	addr.sun_family = AF_UNIX;
+    #####:  384:    	strcpy(addr.sun_path, sockpath);
+        -:  385:    	
+    #####:  386:    	int b = bind(*serverfd, (struct sockaddr*)&addr, sizeof(addr));
+    #####:  387:	if(b<0){
+    #####:  388:	    perror("bind");
+    #####:  389:	    exit(1);
+        -:  390:	}
+        -:  391:	
+    #####:  392:	if(listen(*serverfd, 3)<0){
+    #####:  393:	    perror("listen");
+    #####:  394:	    exit(1);
+        -:  395:	}
+        -:  396:	
+    #####:  397:	printf("listening on %s\n",sockpath);
+        -:  398:	
+        -:  399:	
+        -:  400:	
+    #####:  401:}
+        -:  402:
+    #####:  403:void start_uds_stream_client(){
+        -:  404:	
+        -:  405:	int clientfd;
+        -:  406:        struct sockaddr_un addr;
+        -:  407:
+        -:  408:        
+    #####:  409:        clientfd = socket(AF_UNIX, SOCK_STREAM, 0);
+        -:  410:	
+        -:  411:	
+    #####:  412:	addr.sun_family = AF_UNIX;
+    #####:  413:	strcpy(addr.sun_path, sockpath);
+        -:  414:
+        -:  415:	
+    #####:  416:	connect(clientfd, (struct sockaddr*)&addr, sizeof(addr));
+        -:  417:	
+        -:  418:	char buffer[1024];
+        -:  419:	int count;
+        -:  420:	
+        -:  421:	while(1){
+    #####:  422:	    if (fgets(buffer, sizeof(buffer), stdin) != NULL) {
+    #####:  423:       		 send(clientfd, buffer, strlen(buffer), 0);
+        -:  424:    	    }
+        -:  425:    	    
+        -:  426:	
+        -:  427:	
+        -:  428:	}
+        -:  429:	
+        -:  430:	close(clientfd);
+        -:  431:	exit(1);
+        -:  432:}
+        -:  433:
+    #####:  434:void start_uds_dgram_server(int* serverfd){
+        -:  435:	
+        -:  436:	
+        -:  437:	struct sockaddr_un addr;
+    #####:  438:	*serverfd = socket(AF_UNIX, SOCK_DGRAM, 0);
+    #####:  439:	if(*serverfd<0){
+    #####:  440:		perror("socket faild");
+    #####:  441:		exit(1);
+        -:  442:	}
+        -:  443:	
+    #####:  444:	memset(&addr, 0, sizeof(addr));
+    #####:  445:	addr.sun_family = AF_UNIX;
+    #####:  446:	strcpy(addr.sun_path, sockpath);
+        -:  447:	
+        -:  448:	
+    #####:  449:	if (bind(*serverfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+    #####:  450:        	perror("bind error");
+    #####:  451:        	close(*serverfd);
+    #####:  452:        	exit(1);
+        -:  453:    	}
+        -:  454:    	
+    #####:  455:    	printf("server is bound to %s",sockpath);
+        -:  456:    	
+        -:  457:
+        -:  458:
+    #####:  459:}
+        -:  460:
+        -:  461:
+    #####:  462:void start_uds_dgram_client(){
+        -:  463:	struct sockaddr_un server_addr;
+        -:  464:	
+    #####:  465:	int clientfd = socket(AF_UNIX, SOCK_DGRAM, 0);
+    #####:  466:	if(clientfd<0){
+    #####:  467:		perror("socket faild");
+    #####:  468:		exit(1);
+        -:  469:	}
+        -:  470:	
+    #####:  471:	memset(&server_addr, 0, sizeof(server_addr));
+    #####:  472:	server_addr.sun_family = AF_UNIX;
+    #####:  473:	strcpy(server_addr.sun_path, sockpath);
+        -:  474:	
+        -:  475:	
+        -:  476:	char buffer[1024];
+        -:  477:	int count;
+        -:  478:	
+        -:  479:	while(1){
+    #####:  480:	    if (fgets(buffer, sizeof(buffer), stdin) != NULL) {
+    #####:  481:       		 sendto(clientfd, buffer, strlen(buffer), 0,(struct sockaddr*)&server_addr, sizeof(server_addr));
+        -:  482:    	    }
+        -:  483:    	    
+        -:  484:	
+        -:  485:	
+        -:  486:	}
+        -:  487:	
+        -:  488:	close(clientfd);
+        -:  489:	exit(1);
+        -:  490:	
+        -:  491:	
+        -:  492:}
+        -:  493:
+        -:  494:
+        -:  495:
+        1:  496:int main(int argc,char* argv[]){
+        1:  497:    int timeout = -1;
+        1:  498:    int udpserverfd = -1;
+        1:  499:    int serverfd = -1;
+        1:  500:    int clientfd = -1;
+        1:  501:    int listenerfd = -1;  //listens to the port output
+        1:  502:    char *hostname = NULL;
+        -:  503:    int port;
+        -:  504:    
+        1:  505:    signal(SIGINT, shut_down);
+        1:  506:    signal(SIGTERM, shut_down);
+        -:  507:    
+        -:  508:    // handle alarm
+        5:  509:    for (int i = 1; i < argc; i++) {
+       4*:  510:        if (!strcmp(argv[i], "-t") && (i + 1) < argc) {
+    #####:  511:            timeout = atoi(argv[i + 1]);
+    #####:  512:            i++; 
+        -:  513:        }
+        -:  514:    }
+        -:  515:
+        1:  516:    if (timeout > 0) {
+    #####:  517:        signal(SIGALRM, shut_down);
+    #####:  518:        alarm(timeout);
+        -:  519:    }
+        -:  520:    
+        -:  521:    
+        -:  522:    //handle without e case
+        1:  523:    if(strcmp(argv[1],"-e")){
+    #####:  524:    	port = atoi(argv[2]+4);
+    #####:  525:	for(int i=1;i<argc;i++){
+    #####:  526:	    if(!strncmp(argv[i],"tcps",4)){
+    #####:  527:		start_tcp_server(&serverfd,port);
+        -:  528:		struct sockaddr_in client_addr;
+    #####:  529:		socklen_t client_len = sizeof(client_addr);
+        -:  530:				 
+        -:  531:		//open fd to send messages to the client 
+    #####:  532:		clientfd = accept(serverfd, (struct sockaddr *)&client_addr, &client_len);
+    #####:  533:		if (serverfd < 0) {
+    #####:  534:		    perror("accept failed");
+    #####:  535:		    exit(1);
+        -:  536:		}
+        -:  537:			 
+    #####:  538:		printf("Accepted input connection on port %d\n", port);
+    #####:  539:    		break;
+        -:  540:    	    }
+        -:  541:    	    
+    #####:  542:    	    else if(!strncmp(argv[i],"udps",4)){
+    #####:  543:    	    	 port = atoi(argv[i]+4);
+    #####:  544:		 start_udp_server(&udpserverfd,port);
+    #####:  545:		 printf("Listening on port %d\n", port);
+    #####:  546:    	    	 clientfd = udpserverfd;
+        -:  547:    	    
+        -:  548:    	    
+        -:  549:    	    }
+        -:  550:    	    
+        -:  551:    	    
+        -:  552:    	}
+        -:  553:    	
+    #####:  554:    	without_e(clientfd,argv);
+        -:  555:    }
+        -:  556:    
+        -:  557:    
+        -:  558:    //handle q2 case
+       1*:  559:    if(argc==3 && !strncmp("ttt",argv[2],3)){
+    #####:  560:    	run_basic(argv);
+        -:  561:    }
+        -:  562:    
+        -:  563:    
+        -:  564:    //handle q3 and q4 and q6 (tcp, udp and uds servers and clients)
+        1:  565:    if(argc>=3){
+        -:  566:    	
+        5:  567:	 for(int i=1;i<argc;i++){
+        -:  568:	 	
+        -:  569:	 	//in case: mync -e "ttt 123456789" -i tcps4050 || mync -e "ttt 123456789" -o tcps4050
+        -:  570:	 	//create a server and listen on the port
+        5:  571:	 	 if((!strcmp(argv[i],"-i") || !strcmp(argv[i],"-o")) && !strncmp(argv[i+1],"tcps",4)){
+        -:  572:			//open server
+        -:  573:			 
+        1:  574:			port = atoi(argv[i+1]+4);
+        -:  575:		    	            
+        1:  576:			start_tcp_server(&serverfd,port);
+        -:  577:			struct sockaddr_in client_addr;
+        1:  578:			socklen_t client_len = sizeof(client_addr);
+        -:  579:			 
+        -:  580:			//open fd to send messages to the client 
+        1:  581:			clientfd = accept(serverfd, (struct sockaddr *)&client_addr, &client_len);
+        1:  582:			if (serverfd < 0) {
+    #####:  583:	         	    perror("accept failed");
+    #####:  584:		        exit(1);
+        -:  585:			}
+        -:  586:		 
+        1:  587:			printf("Accepted input connection on port %d\n", port);
+        -:  588:		 
+        -:  589:		 }
+        -:  590:		 
+        -:  591:	
+        -:  592:		 //in case: mync -e "ttt 123456789" -i tcps4050 -o tcpclocalhost,4455
+        -:  593:		 //creat a listener client and connect him to hostname and port number of tcpc parameter
+       3*:  594:		 else if(!strcmp(argv[i],"-o") && !strncmp(argv[i+1],"tcpc",4) && argc>4){
+    #####:  595:		 	hostname = strtok(argv[i+1] + 4, ",");  //split the string where ,
+    #####:  596:		 	if(!strcmp(hostname,"localhost"))
+    #####:  597:		 	    hostname = "127.0.0.1";
+    #####:  598:		 	port = atoi(strtok(NULL,","));  //get what after the ,
+    #####:  599:		 	start_tcp_listener(&listenerfd, hostname, port);
+        -:  600:		 }
+        -:  601:		 
+        -:  602:		 
+        -:  603:		 //in case: mync -e "ttt 123456789" -i udps4050 || mync -e "ttt 123456789" -o udps4050
+       3*:  604:		 else if(!strcmp(argv[i],"-i") && !strncmp(argv[i+1],"udps",4)){
+        -:  605:		 
+    #####:  606:		 	port = atoi(argv[i+1]+4);
+    #####:  607:		 	start_udp_server(&udpserverfd,port);
+    #####:  608:		 	printf("Listening on port %d\n", port);
+        -:  609:		 
+        -:  610:		 }
+        -:  611:		 
+        -:  612:		 //in case: mync -e -o udpc4050
+       3*:  613:		 else if(!strcmp(argv[i],"-o") && !strncmp(argv[i+1],"udpc",4)){
+        -:  614:		 
+    #####:  615:		 	port = atoi(argv[i+1]+4);
+    #####:  616:		 	start_udp_client(port);
+        -:  617:
+        -:  618:		 }
+        -:  619:		 
+        -:  620:
+        -:  621:		 // mync -e "ttt 123456789" -i udsss
+       3*:  622:		 else if((!strcmp(argv[i],"-i") || !strcmp(argv[i],"-o")) && !strncmp(argv[i+1],"udsss",4)){
+    #####:  623:			start_uds_stream_server(&serverfd);
+    #####:  624:		 	clientfd = accept(serverfd, NULL, NULL);
+        -:  625:		 	
+    #####:  626:		 	run_i_o_b_tcp(clientfd,argv);
+        -:  627:		 	
+        -:  628:		 }
+        -:  629:		 
+        -:  630:		 //mync -e udssc
+        3:  631:		 else if(!strncmp(argv[i],"udssc",4)){
+    #####:  632:		 	start_uds_stream_client();
+        -:  633:		 	
+        -:  634:		 }
+        -:  635:		 
+        3:  636:		 else if(!strncmp(argv[i],"udsds",4)){
+    #####:  637:		 	start_uds_dgram_server(&udpserverfd);
+        -:  638:		 	
+    #####:  639:		 	run_i_o_b_udp(udpserverfd,argv);
+        -:  640:		 
+        -:  641:		 }
+        -:  642:		 
+        3:  643:		 else if(!strncmp(argv[i],"udsdc",4)){
+    #####:  644:		 	start_uds_dgram_client();
+        -:  645:	
+        -:  646:		 }
+        -:  647:		 
+        -:  648:		 
+        -:  649:		 
+        -:  650:		
+        -:  651:		 
+        -:  652:		 
+        -:  653:		 
+        -:  654:		 
+        -:  655:         }
+        -:  656:         //if tcp client connected
+        1:  657:         if(clientfd!=-1){
+        -:  658:             //if started the listener
+        1:  659:             if(listenerfd!=-1){
+    #####:  660:             	run_i_and_o(clientfd,listenerfd,argv);
+        -:  661:             }
+        -:  662:             else{
+        1:  663:                run_i_o_b_tcp(clientfd,argv);
+        -:  664:             
+        -:  665:             }
+        -:  666:         }
+        -:  667:         //if udp client connected
+    #####:  668:         else if(udpserverfd!=-1){
+        -:  669:         	//if started the listener
+    #####:  670:             if(listenerfd!=-1){
+    #####:  671:             	run_i_and_o(udpserverfd,listenerfd,argv);
+        -:  672:             }
+        -:  673:             else{
+    #####:  674:                run_i_o_b_udp(udpserverfd,argv);
+        -:  675:             	
+        -:  676:             }
+        -:  677:         
+        -:  678:         }
+        -:  679:         
+        -:  680:         
+        -:  681:         
+        -:  682:
+        -:  683:    }
+        -:  684:    
+        -:  685:    
+        -:  686:    
+    #####:  687:    return 0;
+        -:  688:    
+        -:  689:    
+        -:  690:    
+        -:  691:    	
+        -:  692:
+        -:  693:
+        -:  694:}
